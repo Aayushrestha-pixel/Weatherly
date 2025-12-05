@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+
+{% block title %}Register - Weatherly{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center" style="padding-top: 100px;">
+    <div class="col-md-6 col-lg-5">
+        <div class="auth-card animate-fade-in">
+            <div class="auth-header">
+                <h2>Get Started</h2>
+                <p>Create your account</p>
+            </div>
+            <form method="POST" class="auth-form">
+                <div class="mb-3">
+                    <label for="username" class="form-label">Username</label>
+                    <input type="text" 
+                           class="form-control form-control-custom" 
+                           id="username" 
+                           name="username"
+                           autocomplete="username"
+                           required>
+                </div>
+                <div class="mb-3">
+                    <label for="email" class="form-label">Email</label>
+                    <input type="email" 
+                           class="form-control form-control-custom" 
+                           id="email" 
+                           name="email"
+                           autocomplete="email"
+                           required>
+                </div>
+                <div class="mb-3">
+                    <label for="password" class="form-label">Password</label>
+                    <input type="password" 
+                           class="form-control form-control-custom password-input" 
+                           id="password" 
+                           name="password"
+                           autocomplete="new-password"
+                           required>
+                </div>
+                <div class="mb-3">
+                    <label for="city" class="form-label">City</label>
+                    <select class="form-select form-control-custom" id="city" name="city">
+                        <option value="Kathmandu">Kathmandu</option>
+                        <option value="Pokhara">Pokhara</option>
+                        <option value="Lalitpur">Lalitpur</option>
+                        <option value="Bhaktapur">Bhaktapur</option>
+                        <option value="Biratnagar">Biratnagar</option>
+                        <option value="Birgunj">Birgunj</option>
+                        <option value="Dharan">Dharan</option>
+                        <option value="Bharatpur">Bharatpur</option>
+                        <option value="Janakpur">Janakpur</option>
+                        <option value="Hetauda">Hetauda</option>
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-primary w-100 btn-custom">
+                    Create Account
+                </button>
+            </form>
+            <div class="auth-footer">
+                Already have an account? <a href="{{ url_for('login') }}">Sign in</a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

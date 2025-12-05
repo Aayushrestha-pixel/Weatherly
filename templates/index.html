@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="hero-section">
+    <div class="row justify-content-center">
+        <div class="col-lg-10">
+            <div class="hero-content animate-fade-in">
+                <div class="weather-emoji">🌤️</div>
+                <h1 class="hero-title">
+                    Weather-Aware<br>Activity Planner
+                </h1>
+                <p class="hero-subtitle">AI-powered task management with real-time weather insights</p>
+                <p class="hero-description">
+                    Weatherly combines real-time weather data with Gemini AI to provide intelligent recommendations for your daily activities. Plan smarter, not harder.
+                </p>
+                <div class="hero-buttons">
+                    <a href="{{ url_for('register') }}" class="btn btn-primary btn-lg btn-custom">
+                        Get Started
+                    </a>
+                    <a href="{{ url_for('login') }}" class="btn btn-outline-primary btn-lg btn-custom">
+                        Sign In
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mt-5 g-4">
+        <div class="col-md-4">
+            <div class="feature-card animate-slide-up" style="animation-delay: 0.1s">
+                <div class="feature-icon">📊</div>
+                <h4>Real-Time Weather</h4>
+                <p>Comprehensive weather data including temperature, humidity, wind, and precipitation forecasts</p>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="feature-card animate-slide-up" style="animation-delay: 0.2s">
+                <div class="feature-icon">🤖</div>
+                <h4>AI Analysis</h4>
+                <p>Gemini AI analyzes each task against current conditions to provide personalized recommendations</p>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="feature-card animate-slide-up" style="animation-delay: 0.3s">
+                <div class="feature-icon">⚡</div>
+                <h4>Risk Detection</h4>
+                <p>Automatic risk assessment for outdoor activities with visual indicators and safety suggestions</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
