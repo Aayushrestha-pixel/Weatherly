@@ -1,12 +1,13 @@
-from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
+from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, abort
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
-from models import db, User, Task
+from models import db, User, Task, AdminLog
 from config import Config
 import requests
 import google.generativeai as genai
 from weather_analyzer import WeatherAnalyzer, NotificationManager
 from datetime import datetime, timedelta
 import pytz
+from functools import wraps
 
 app = Flask(__name__)
 app.config.from_object(Config)
@@ -33,6 +34,37 @@ def load_user(user_id):
     return db.session.get(User, int(user_id))
 
 
+# Admin decorator
+def admin_required(f):
+    """Decorator to require admin access"""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not current_user.is_authenticated:
+            flash('⛔ Please login to access this page', 'danger')
+            return redirect(url_for('login'))
+        if not current_user.is_admin:
+            flash('⛔ Access denied. Admin privileges required.', 'danger')
+            return redirect(url_for('dashboard'))
+        return f(*args, **kwargs)
+    return decorated_function
+
+
+def log_admin_action(action, target_username=None, details=None):
+    """Log admin actions for security audit"""
+    try:
+        log = AdminLog(
+            admin_username=current_user.username,
+            action=action,
+            target_username=target_username,
+            details=details,
+            ip_address=request.remote_addr
+        )
+        db.session.add(log)
+        db.session.commit()
+    except Exception as e:
+        print(f"Failed to log admin action: {e}")
+
+
 # Helper function to get weather emoji
 def get_weather_emoji(condition):
     """Return emoji based on weather condition"""
@@ -57,6 +89,8 @@ def get_weather_emoji(condition):
 @app.route('/')
 def index():
     if current_user.is_authenticated:
+        if current_user.is_admin:
+            return redirect(url_for('admin_dashboard'))
         return redirect(url_for('dashboard'))
     return render_template('index.html')
 
@@ -81,8 +115,8 @@ def register():
             flash('Email already registered!', 'danger')
             return redirect(url_for('register'))
         
-        # Create new user
-        user = User(username=username, email=email, preferred_city=city)
+        # Create new user (regular user, not admin)
+        user = User(username=username, email=email, preferred_city=city, is_admin=False)
         user.set_password(password)
         db.session.add(user)
         db.session.commit()
@@ -96,6 +130,8 @@ def register():
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if current_user.is_authenticated:
+        if current_user.is_admin:
+            return redirect(url_for('admin_dashboard'))
         return redirect(url_for('dashboard'))
     
     if request.method == 'POST':
@@ -105,9 +141,19 @@ def login():
         user = User.query.filter_by(username=username).first()
         
         if user and user.check_password(password):
+            # Update last login
+            user.last_login = get_nepal_time()
+            db.session.commit()
+            
             login_user(user)
-            flash(f'👋 Welcome back, {user.username}!', 'success')
-            return redirect(url_for('dashboard'))
+            
+            if user.is_admin:
+                log_admin_action('ADMIN_LOGIN', details='Admin logged in')
+                flash(f'👑 Welcome back, Admin {user.username}!', 'success')
+                return redirect(url_for('admin_dashboard'))
+            else:
+                flash(f'👋 Welcome back, {user.username}!', 'success')
+                return redirect(url_for('dashboard'))
         else:
             flash('❌ Invalid username or password', 'danger')
     
@@ -117,14 +163,152 @@ def login():
 @app.route('/logout')
 @login_required
 def logout():
+    if current_user.is_admin:
+        log_admin_action('ADMIN_LOGOUT', details='Admin logged out')
     logout_user()
     flash('👋 You have been logged out.', 'info')
     return redirect(url_for('index'))
 
 
+# ============================================
+# ADMIN ROUTES
+# ============================================
+
+@app.route('/admin')
+@admin_required
+def admin_dashboard():
+    """Admin dashboard with user statistics"""
+    users = User.query.filter_by(is_admin=False).order_by(User.created_at.desc()).all()
+    total_users = len(users)
+    total_tasks = Task.query.count()
+    total_completed = Task.query.filter_by(status='completed').count()
+    
+    # Recent admin logs
+    recent_logs = AdminLog.query.order_by(AdminLog.timestamp.desc()).limit(10).all()
+    
+    # User statistics
+    user_stats = []
+    for user in users:
+        user_stats.append({
+            'user': user,
+            'task_count': user.get_task_count(),
+            'completed_tasks': user.get_completed_task_count(),
+            'pending_tasks': user.get_pending_task_count(),
+            'critical_tasks': user.get_critical_task_count()
+        })
+    
+    log_admin_action('VIEW_DASHBOARD', details='Viewed admin dashboard')
+    
+    return render_template('admin_dashboard.html',
+                         user_stats=user_stats,
+                         total_users=total_users,
+                         total_tasks=total_tasks,
+                         total_completed=total_completed,
+                         recent_logs=recent_logs)
+
+
+@app.route('/admin/user/<int:user_id>')
+@admin_required
+def admin_view_user(user_id):
+    """View detailed user information (password protected)"""
+    user = User.query.get_or_404(user_id)
+    
+    if user.is_admin:
+        flash('⛔ Cannot view admin user details', 'danger')
+        return redirect(url_for('admin_dashboard'))
+    
+    tasks = Task.query.filter_by(user_id=user.id).order_by(Task.created_at.desc()).all()
+    
+    log_admin_action('VIEW_USER_DATA', target_username=user.username, 
+                    details=f'Viewed details for user {user.username}')
+    
+    return render_template('admin_user_detail.html', user=user, tasks=tasks)
+
+
+@app.route('/admin/user/<int:user_id>/delete', methods=['POST'])
+@admin_required
+def admin_delete_user(user_id):
+    """Delete a user and all their data"""
+    user = User.query.get_or_404(user_id)
+    
+    if user.is_admin:
+        flash('⛔ Cannot delete admin users', 'danger')
+        return redirect(url_for('admin_dashboard'))
+    
+    username = user.username
+    task_count = user.get_task_count()
+    
+    # Log before deletion
+    log_admin_action('DELETE_USER', target_username=username, 
+                    details=f'Deleted user {username} with {task_count} tasks')
+    
+    # Delete user (tasks will be cascade deleted)
+    db.session.delete(user)
+    db.session.commit()
+    
+    flash(f'🗑️ User "{username}" and {task_count} tasks deleted successfully', 'success')
+    return redirect(url_for('admin_dashboard'))
+
+
+@app.route('/admin/logs')
+@admin_required
+def admin_logs():
+    """View all admin activity logs"""
+    page = request.args.get('page', 1, type=int)
+    logs = AdminLog.query.order_by(AdminLog.timestamp.desc()).paginate(
+        page=page, per_page=50, error_out=False
+    )
+    
+    log_admin_action('VIEW_LOGS', details='Viewed admin logs')
+    
+    return render_template('admin_logs.html', logs=logs)
+
+
+@app.route('/admin/stats')
+@admin_required
+def admin_stats():
+    """View system-wide statistics"""
+    # User statistics
+    total_users = User.query.filter_by(is_admin=False).count()
+    active_users = User.query.filter(User.last_login.isnot(None), User.is_admin==False).count()
+    
+    # Task statistics
+    total_tasks = Task.query.count()
+    completed_tasks = Task.query.filter_by(status='completed').count()
+    pending_tasks = Task.query.filter_by(status='pending').count()
+    critical_tasks = Task.query.filter_by(urgency_level='CRITICAL').count()
+    
+    # Risk level distribution
+    high_risk = Task.query.filter_by(risk_level='high').count()
+    medium_risk = Task.query.filter_by(risk_level='medium').count()
+    low_risk = Task.query.filter_by(risk_level='low').count()
+    no_risk = Task.query.filter_by(risk_level='none').count()
+    
+    log_admin_action('VIEW_STATS', details='Viewed system statistics')
+    
+    return render_template('admin_stats.html',
+                         total_users=total_users,
+                         active_users=active_users,
+                         total_tasks=total_tasks,
+                         completed_tasks=completed_tasks,
+                         pending_tasks=pending_tasks,
+                         critical_tasks=critical_tasks,
+                         high_risk=high_risk,
+                         medium_risk=medium_risk,
+                         low_risk=low_risk,
+                         no_risk=no_risk)
+
+
+# ============================================
+# USER ROUTES (EXISTING)
+# ============================================
+
 @app.route('/dashboard')
 @login_required
 def dashboard():
+    if current_user.is_admin:
+        return redirect(url_for('admin_dashboard'))
+    
     city = request.args.get('city', current_user.preferred_city)
     tasks = Task.query.filter_by(user_id=current_user.id).order_by(Task.created_at.desc()).all()
     
@@ -473,9 +657,23 @@ def get_7day_forecast(city):
         return []
 
 
-# Initialize database
+# Initialize database and create admin user if doesn't exist
 with app.app_context():
     db.create_all()
+    
+    # Create default admin if doesn't exist
+    admin = User.query.filter_by(username='admin').first()
+    if not admin:
+        admin = User(
+            username='admin',
+            email='admin@weatherly.com',
+            preferred_city='Kathmandu',
+            is_admin=True
+        )
+        admin.set_password('admin123')  # CHANGE THIS IN PRODUCTION!
+        db.session.add(admin)
+        db.session.commit()
+        print("✅ Default admin user created: username='admin', password='admin123'")
 
 
 if __name__ == '__main__':

@@ -1,0 +1,190 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Activity Logs - Weatherly{% endblock %}
+
+{% block content %}
+<div class="dashboard-header animate-fade-in">
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+        <div>
+            <h2>📜 Admin Activity Logs</h2>
+            <p style="color: var(--text-secondary);">Complete audit trail of admin actions</p>
+        </div>
+        <a href="{{ url_for('admin_dashboard') }}" class="btn btn-outline-primary btn-custom">
+            <i class="fas fa-arrow-left"></i> Back to Dashboard
+        </a>
+    </div>
+</div>
+
+<div class="admin-card animate-slide-up">
+    <div class="admin-card-body">
+        {% if logs.items %}
+        <div class="table-responsive">
+            <table class="admin-table">
+                <thead>
+                    <tr>
+                        <th>Timestamp</th>
+                        <th>Admin</th>
+                        <th>Action</th>
+                        <th>Target User</th>
+                        <th>Details</th>
+                        <th>IP Address</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for log in logs.items %}
+                    <tr>
+                        <td>
+                            <small>{{ log.get_formatted_time() }}</small>
+                        </td>
+                        <td>
+                            <strong>{{ log.admin_username }}</strong>
+                        </td>
+                        <td>
+                            <span class="action-badge action-{{ log.action.split('_')[0].lower() }}">
+                                {{ log.action.replace('_', ' ').title() }}
+                            </span>
+                        </td>
+                        <td>
+                            {% if log.target_username %}
+                                {{ log.target_username }}
+                            {% else %}
+                                <span style="color: var(--text-secondary);">-</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if log.details %}
+                                <small>{{ log.details }}</small>
+                            {% else %}
+                                <span style="color: var(--text-secondary);">-</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <small style="font-family: monospace;">{{ log.ip_address or '-' }}</small>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- Pagination -->
+        {% if logs.pages > 1 %}
+        <div class="pagination-container">
+            <nav>
+                <ul class="pagination">
+                    {% if logs.has_prev %}
+                    <li class="page-item">
+                        <a class="page-link" href="{{ url_for('admin_logs', page=logs.prev_num) }}">
+                            <i class="fas fa-chevron-left"></i> Previous
+                        </a>
+                    </li>
+                    {% endif %}
+                    
+                    {% for page_num in logs.iter_pages(left_edge=1, right_edge=1, left_current=1, right_current=2) %}
+                        {% if page_num %}
+                            <li class="page-item {% if page_num == logs.page %}active{% endif %}">
+                                <a class="page-link" href="{{ url_for('admin_logs', page=page_num) }}">
+                                    {{ page_num }}
+                                </a>
+                            </li>
+                        {% else %}
+                            <li class="page-item disabled">
+                                <span class="page-link">...</span>
+                            </li>
+                        {% endif %}
+                    {% endfor %}
+                    
+                    {% if logs.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="{{ url_for('admin_logs', page=logs.next_num) }}">
+                            Next <i class="fas fa-chevron-right"></i>
+                        </a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+            <p style="color: var(--text-secondary); text-align: center; margin-top: 10px;">
+                Showing {{ logs.total }} logs (Page {{ logs.page }} of {{ logs.pages }})
+            </p>
+        </div>
+        {% endif %}
+        
+        {% else %}
+        <div class="empty-state">
+            <i class="fas fa-history"></i>
+            <h5>No activity logs</h5>
+            <p>Admin actions will appear here</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<style>
+.action-badge {
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+.action-delete {
+    background: rgba(255, 69, 58, 0.2);
+    color: var(--danger);
+}
+
+.action-view {
+    background: rgba(10, 132, 255, 0.2);
+    color: var(--accent-blue);
+}
+
+.action-admin {
+    background: rgba(191, 90, 242, 0.2);
+    color: var(--accent-purple);
+}
+
+.pagination-container {
+    margin-top: 30px;
+}
+
+.pagination {
+    display: flex;
+    justify-content: center;
+    gap: 5px;
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.page-item {
+    display: inline-block;
+}
+
+.page-link {
+    padding: 8px 15px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+    text-decoration: none;
+    border-radius: 8px;
+    transition: all 0.3s ease;
+}
+
+.page-link:hover {
+    background: rgba(10, 132, 255, 0.2);
+    border-color: var(--accent-blue);
+}
+
+.page-item.active .page-link {
+    background: var(--accent-blue);
+    border-color: var(--accent-blue);
+    color: white;
+}
+
+.page-item.disabled .page-link {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+</style>
+{% endblock %}

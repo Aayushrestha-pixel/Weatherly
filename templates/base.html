@@ -13,18 +13,53 @@
         <div class="container-custom">
             {% if current_user.is_authenticated %}
                 <!-- Logged in: Brand on left, user dropdown on TOP RIGHT -->
-                <a class="navbar-brand" href="{{ url_for('dashboard') }}">Weatherly</a>
+                <a class="navbar-brand" href="{% if current_user.is_admin %}{{ url_for('admin_dashboard') }}{% else %}{{ url_for('dashboard') }}{% endif %}">
+                    Weatherly {% if current_user.is_admin %}<span style="font-size: 0.8rem; color: var(--accent-purple);">ADMIN</span>{% endif %}
+                </a>
                 <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" style="border: 1px solid rgba(255,255,255,0.1);">
                     <span class="navbar-toggler-icon" style="filter: invert(1);"></span>
                 </button>
                 <div class="collapse navbar-collapse" id="navbarNav">
+                    <!-- Admin Navigation Links -->
+                    {% if current_user.is_admin %}
+                    <ul class="navbar-nav ms-auto me-3">
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('admin_dashboard') }}">
+                                <i class="fas fa-tachometer-alt"></i> Dashboard
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('admin_stats') }}">
+                                <i class="fas fa-chart-bar"></i> Statistics
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('admin_logs') }}">
+                                <i class="fas fa-history"></i> Logs
+                            </a>
+                        </li>
+                    </ul>
+                    {% endif %}
+                    
                     <ul class="navbar-nav ms-auto">
                         <li class="nav-item dropdown">
                             <a class="nav-link dropdown-toggle user-dropdown-link" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                                <i class="fas fa-user-circle"></i>
+                                {% if current_user.is_admin %}
+                                    <i class="fas fa-user-shield"></i>
+                                {% else %}
+                                    <i class="fas fa-user-circle"></i>
+                                {% endif %}
                                 <span class="username-text">{{ current_user.username }}</span>
                             </a>
                             <ul class="dropdown-menu dropdown-menu-end dropdown-custom">
+                                {% if current_user.is_admin %}
+                                <li>
+                                    <a class="dropdown-item" href="{{ url_for('admin_dashboard') }}">
+                                        <i class="fas fa-tachometer-alt"></i> Admin Panel
+                                    </a>
+                                </li>
+                                <li><hr class="dropdown-divider" style="border-color: var(--border-color);"></li>
+                                {% endif %}
                                 <li>
                                     <a class="dropdown-item" href="{{ url_for('logout') }}">
                                         <i class="fas fa-sign-out-alt"></i> Logout

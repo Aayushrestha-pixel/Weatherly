@@ -1,0 +1,342 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Dashboard - Weatherly{% endblock %}
+
+{% block content %}
+<div class="dashboard-header animate-fade-in">
+    <h2>👑 Admin Dashboard</h2>
+    <p style="color: var(--text-secondary);">System Overview & User Management</p>
+</div>
+
+<!-- Statistics Cards -->
+<div class="row g-4 mb-4">
+    <div class="col-md-3">
+        <div class="admin-stat-card animate-slide-up">
+            <div class="stat-icon">👥</div>
+            <div class="stat-content">
+                <h3>{{ total_users }}</h3>
+                <p>Total Users</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="admin-stat-card animate-slide-up" style="animation-delay: 0.1s">
+            <div class="stat-icon">📋</div>
+            <div class="stat-content">
+                <h3>{{ total_tasks }}</h3>
+                <p>Total Tasks</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="admin-stat-card animate-slide-up" style="animation-delay: 0.2s">
+            <div class="stat-icon">✅</div>
+            <div class="stat-content">
+                <h3>{{ total_completed }}</h3>
+                <p>Completed Tasks</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="admin-stat-card animate-slide-up" style="animation-delay: 0.3s">
+            <div class="stat-icon">⚡</div>
+            <div class="stat-content">
+                <h3>{{ (total_completed / total_tasks * 100)|round(1) if total_tasks > 0 else 0 }}%</h3>
+                <p>Completion Rate</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4">
+    <!-- Users Table -->
+    <div class="col-lg-8">
+        <div class="admin-card animate-slide-up">
+            <div class="admin-card-header">
+                <h4>User Management</h4>
+                <a href="{{ url_for('admin_stats') }}" class="btn btn-sm btn-outline-primary btn-custom">
+                    <i class="fas fa-chart-bar"></i> View Stats
+                </a>
+            </div>
+            <div class="admin-card-body">
+                {% if user_stats %}
+                <div class="table-responsive">
+                    <table class="admin-table">
+                        <thead>
+                            <tr>
+                                <th>User</th>
+                                <th>Email</th>
+                                <th>City</th>
+                                <th>Tasks</th>
+                                <th>Completed</th>
+                                <th>Critical</th>
+                                <th>Joined</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for stat in user_stats %}
+                            <tr>
+                                <td>
+                                    <strong>{{ stat.user.username }}</strong>
+                                </td>
+                                <td>{{ stat.user.email }}</td>
+                                <td>{{ stat.user.preferred_city }}</td>
+                                <td>
+                                    <span class="badge bg-primary">{{ stat.task_count }}</span>
+                                </td>
+                                <td>
+                                    <span class="badge bg-success">{{ stat.completed_tasks }}</span>
+                                </td>
+                                <td>
+                                    {% if stat.critical_tasks > 0 %}
+                                        <span class="badge bg-danger">{{ stat.critical_tasks }}</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">0</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <small>{{ stat.user.get_formatted_created_at() }}</small>
+                                </td>
+                                <td>
+                                    <a href="{{ url_for('admin_view_user', user_id=stat.user.id) }}" 
+                                       class="btn btn-sm btn-outline-primary btn-custom">
+                                        <i class="fas fa-eye"></i>
+                                    </a>
+                                    <button class="btn btn-sm btn-outline-danger btn-custom" 
+                                            onclick="confirmDelete('{{ stat.user.username }}', {{ stat.user.id }})">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="empty-state">
+                    <i class="fas fa-users"></i>
+                    <h5>No users yet</h5>
+                    <p>Users will appear here once they register</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Activity -->
+    <div class="col-lg-4">
+        <div class="admin-card animate-slide-up" style="animation-delay: 0.1s">
+            <div class="admin-card-header">
+                <h5>Recent Admin Activity</h5>
+                <a href="{{ url_for('admin_logs') }}" class="btn btn-sm btn-link" style="color: var(--accent-blue);">
+                    View All <i class="fas fa-arrow-right"></i>
+                </a>
+            </div>
+            <div class="admin-card-body" style="max-height: 600px; overflow-y: auto;">
+                {% if recent_logs %}
+                    {% for log in recent_logs %}
+                    <div class="activity-item">
+                        <div class="activity-icon">
+                            {% if 'DELETE' in log.action %}
+                                <i class="fas fa-trash text-danger"></i>
+                            {% elif 'VIEW' in log.action %}
+                                <i class="fas fa-eye text-primary"></i>
+                            {% elif 'LOGIN' in log.action %}
+                                <i class="fas fa-sign-in-alt text-success"></i>
+                            {% else %}
+                                <i class="fas fa-cog text-secondary"></i>
+                            {% endif %}
+                        </div>
+                        <div class="activity-content">
+                            <strong>{{ log.action.replace('_', ' ').title() }}</strong>
+                            {% if log.target_username %}
+                            <p>Target: {{ log.target_username }}</p>
+                            {% endif %}
+                            {% if log.details %}
+                            <p>{{ log.details }}</p>
+                            {% endif %}
+                            <small>{{ log.get_formatted_time() }}</small>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="empty-state">
+                        <i class="fas fa-history"></i>
+                        <p>No activity logs yet</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteUserModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content modal-custom">
+            <div class="modal-header">
+                <h5 class="modal-title">⚠️ Confirm User Deletion</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" style="filter: invert(1);"></button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to delete user <strong id="deleteUsername"></strong>?</p>
+                <p class="text-danger">⚠️ This will permanently delete:</p>
+                <ul>
+                    <li>User account</li>
+                    <li>All user tasks</li>
+                    <li>All associated data</li>
+                </ul>
+                <p><strong>This action cannot be undone!</strong></p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary btn-custom" data-bs-dismiss="modal">Cancel</button>
+                <form id="deleteUserForm" method="POST" style="display: inline;">
+                    <button type="submit" class="btn btn-danger btn-custom">
+                        <i class="fas fa-trash"></i> Delete User
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function confirmDelete(username, userId) {
+    document.getElementById('deleteUsername').textContent = username;
+    document.getElementById('deleteUserForm').action = `/admin/user/${userId}/delete`;
+    const modal = new bootstrap.Modal(document.getElementById('deleteUserModal'));
+    modal.show();
+}
+</script>
+
+<style>
+.admin-stat-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    padding: 30px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    transition: all 0.3s ease;
+}
+
+.admin-stat-card:hover {
+    border-color: rgba(255, 255, 255, 0.2);
+    transform: translateY(-4px);
+}
+
+.stat-icon {
+    font-size: 3rem;
+    opacity: 0.8;
+}
+
+.stat-content h3 {
+    font-size: 2.5rem;
+    font-weight: 600;
+    margin: 0;
+    color: var(--text-primary);
+}
+
+.stat-content p {
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
+
+.admin-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    overflow: hidden;
+}
+
+.admin-card-header {
+    background: var(--bg-secondary);
+    padding: 20px 25px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.admin-card-header h4, .admin-card-header h5 {
+    margin: 0;
+    font-size: 1.2rem;
+    font-weight: 600;
+}
+
+.admin-card-body {
+    padding: 25px;
+}
+
+.admin-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.admin-table thead th {
+    background: var(--bg-secondary);
+    color: var(--text-secondary);
+    font-weight: 600;
+    padding: 12px 15px;
+    text-align: left;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.admin-table tbody td {
+    padding: 15px;
+    border-bottom: 1px solid var(--border-color);
+    color: var(--text-primary);
+}
+
+.admin-table tbody tr:hover {
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.admin-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.activity-item {
+    display: flex;
+    gap: 15px;
+    padding: 15px;
+    margin-bottom: 10px;
+    border-radius: 12px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+}
+
+.activity-icon {
+    flex-shrink: 0;
+    font-size: 1.5rem;
+}
+
+.activity-content {
+    flex-grow: 1;
+}
+
+.activity-content strong {
+    display: block;
+    color: var(--text-primary);
+    font-size: 0.95rem;
+    margin-bottom: 5px;
+}
+
+.activity-content p {
+    margin: 5px 0;
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+}
+
+.activity-content small {
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 0.75rem;
+}
+</style>
+{% endblock %}

@@ -1,0 +1,436 @@
+{% extends "base.html" %}
+
+{% block title %}User Details - {{ user.username }} - Admin{% endblock %}
+
+{% block content %}
+<div class="dashboard-header animate-fade-in">
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+        <div>
+            <h2>User Details: {{ user.username }}</h2>
+            <p style="color: var(--text-secondary);">Complete user information and activity</p>
+        </div>
+        <a href="{{ url_for('admin_dashboard') }}" class="btn btn-outline-primary btn-custom">
+            <i class="fas fa-arrow-left"></i> Back to Dashboard
+        </a>
+    </div>
+</div>
+
+<div class="row g-4">
+    <!-- User Information Card -->
+    <div class="col-lg-4">
+        <div class="admin-card animate-slide-up">
+            <div class="admin-card-header">
+                <h5>👤 User Profile</h5>
+            </div>
+            <div class="admin-card-body">
+                <div class="user-detail-section">
+                    <div class="user-avatar">
+                        <i class="fas fa-user-circle"></i>
+                    </div>
+                    <h3>{{ user.username }}</h3>
+                    
+                    <div class="detail-item">
+                        <i class="fas fa-envelope"></i>
+                        <div>
+                            <small>Email</small>
+                            <strong>{{ user.email }}</strong>
+                        </div>
+                    </div>
+                    
+                    <div class="detail-item">
+                        <i class="fas fa-map-marker-alt"></i>
+                        <div>
+                            <small>Preferred City</small>
+                            <strong>{{ user.preferred_city }}</strong>
+                        </div>
+                    </div>
+                    
+                    <div class="detail-item">
+                        <i class="fas fa-calendar-plus"></i>
+                        <div>
+                            <small>Account Created</small>
+                            <strong>{{ user.get_formatted_created_at() }}</strong>
+                        </div>
+                    </div>
+                    
+                    <div class="detail-item">
+                        <i class="fas fa-clock"></i>
+                        <div>
+                            <small>Last Login</small>
+                            <strong>{{ user.get_formatted_last_login() }}</strong>
+                        </div>
+                    </div>
+                    
+                    <div class="detail-item">
+                        <i class="fas fa-shield-alt"></i>
+                        <div>
+                            <small>Password</small>
+                            <strong style="color: var(--text-secondary);">🔒 Protected</strong>
+                        </div>
+                    </div>
+                </div>
+                
+                <hr style="border-color: var(--border-color); margin: 20px 0;">
+                
+                <button class="btn btn-danger w-100 btn-custom" 
+                        onclick="confirmDelete('{{ user.username }}', {{ user.id }})">
+                    <i class="fas fa-trash"></i> Delete User
+                </button>
+            </div>
+        </div>
+        
+        <!-- Statistics Card -->
+        <div class="admin-card animate-slide-up mt-4" style="animation-delay: 0.1s">
+            <div class="admin-card-header">
+                <h5>📊 Statistics</h5>
+            </div>
+            <div class="admin-card-body">
+                <div class="stat-row">
+                    <span>Total Tasks</span>
+                    <strong>{{ user.get_task_count() }}</strong>
+                </div>
+                <div class="stat-row">
+                    <span>Completed</span>
+                    <strong style="color: var(--success);">{{ user.get_completed_task_count() }}</strong>
+                </div>
+                <div class="stat-row">
+                    <span>Pending</span>
+                    <strong style="color: var(--warning);">{{ user.get_pending_task_count() }}</strong>
+                </div>
+                <div class="stat-row">
+                    <span>Critical Urgency</span>
+                    <strong style="color: var(--danger);">{{ user.get_critical_task_count() }}</strong>
+                </div>
+                <div class="stat-row">
+                    <span>Completion Rate</span>
+                    <strong>
+                        {% if user.get_task_count() > 0 %}
+                            {{ (user.get_completed_task_count() / user.get_task_count() * 100)|round(1) }}%
+                        {% else %}
+                            0%
+                        {% endif %}
+                    </strong>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- User Tasks -->
+    <div class="col-lg-8">
+        <div class="admin-card animate-slide-up" style="animation-delay: 0.2s">
+            <div class="admin-card-header">
+                <h5>📋 User Tasks ({{ tasks|length }})</h5>
+            </div>
+            <div class="admin-card-body" style="max-height: 800px; overflow-y: auto;">
+                {% if tasks %}
+                    {% for task in tasks %}
+                    <div class="task-item-admin {% if task.status == 'completed' %}task-completed{% endif %} risk-{{ task.risk_level }}">
+                        <div class="task-status-indicator">
+                            {% if task.status == 'completed' %}
+                                <i class="fas fa-check-circle" style="color: var(--success);"></i>
+                            {% else %}
+                                <i class="far fa-circle" style="color: var(--text-secondary);"></i>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="task-info">
+                            <h6>{{ task.task_name }}</h6>
+                            <small class="task-time">{{ task.get_formatted_time() }}</small>
+                            
+                            <div class="task-badges">
+                                <span class="badge badge-status-{{ task.status }}">
+                                    {{ task.status.title() }}
+                                </span>
+                                <span class="badge badge-urgency-{{ task.urgency_level.lower() }}">
+                                    {{ task.urgency_level }}
+                                </span>
+                                <span class="badge badge-risk-{{ task.risk_level }}">
+                                    Risk: {{ task.risk_level.title() }}
+                                </span>
+                                {% if task.suitability_score %}
+                                <span class="badge bg-primary">
+                                    {% for i in range(task.suitability_score|int) %}⭐{% endfor %}
+                                </span>
+                                {% endif %}
+                            </div>
+                            
+                            {% if task.best_day_suggestion %}
+                            <div class="task-suggestion">
+                                <i class="fas fa-calendar-check"></i>
+                                <strong>Best day:</strong> {{ task.best_day_suggestion }}
+                            </div>
+                            {% endif %}
+                            
+                            {% if task.ai_suggestion %}
+                            <details class="ai-details">
+                                <summary>View AI Analysis</summary>
+                                <div class="ai-suggestion-box">
+                                    <p style="white-space: pre-line; margin: 0;">{{ task.ai_suggestion }}</p>
+                                </div>
+                            </details>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="empty-state">
+                        <i class="fas fa-inbox"></i>
+                        <h5>No tasks</h5>
+                        <p>This user hasn't created any tasks yet</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteUserModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content modal-custom">
+            <div class="modal-header">
+                <h5 class="modal-title">⚠️ Confirm User Deletion</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" style="filter: invert(1);"></button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to delete user <strong id="deleteUsername"></strong>?</p>
+                <p class="text-danger">⚠️ This will permanently delete:</p>
+                <ul>
+                    <li>User account</li>
+                    <li>All {{ user.get_task_count() }} tasks</li>
+                    <li>All associated data</li>
+                </ul>
+                <p><strong>This action cannot be undone!</strong></p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary btn-custom" data-bs-dismiss="modal">Cancel</button>
+                <form id="deleteUserForm" method="POST" style="display: inline;">
+                    <button type="submit" class="btn btn-danger btn-custom">
+                        <i class="fas fa-trash"></i> Delete User
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function confirmDelete(username, userId) {
+    document.getElementById('deleteUsername').textContent = username;
+    document.getElementById('deleteUserForm').action = `/admin/user/${userId}/delete`;
+    const modal = new bootstrap.Modal(document.getElementById('deleteUserModal'));
+    modal.show();
+}
+</script>
+
+<style>
+.user-detail-section {
+    text-align: center;
+}
+
+.user-avatar {
+    font-size: 5rem;
+    color: var(--accent-blue);
+    margin-bottom: 20px;
+}
+
+.user-detail-section h3 {
+    margin-bottom: 30px;
+    color: var(--text-primary);
+}
+
+.detail-item {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    padding: 15px;
+    margin-bottom: 10px;
+    background: var(--bg-secondary);
+    border-radius: 12px;
+    border: 1px solid var(--border-color);
+    text-align: left;
+}
+
+.detail-item i {
+    font-size: 1.5rem;
+    color: var(--accent-blue);
+    width: 30px;
+    flex-shrink: 0;
+}
+
+.detail-item small {
+    display: block;
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 3px;
+}
+
+.detail-item strong {
+    display: block;
+    color: var(--text-primary);
+    font-size: 0.95rem;
+}
+
+.stat-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.stat-row:last-child {
+    border-bottom: none;
+}
+
+.stat-row span {
+    color: var(--text-secondary);
+}
+
+.stat-row strong {
+    color: var(--text-primary);
+}
+
+.task-item-admin {
+    display: flex;
+    gap: 15px;
+    padding: 20px;
+    margin-bottom: 15px;
+    background: var(--bg-secondary);
+    border-radius: 12px;
+    border: 1px solid var(--border-color);
+    border-left: 3px solid var(--border-color);
+}
+
+.task-item-admin.risk-high {
+    border-left-color: var(--danger);
+}
+
+.task-item-admin.risk-medium {
+    border-left-color: var(--warning);
+}
+
+.task-item-admin.risk-low {
+    border-left-color: var(--accent-blue);
+}
+
+.task-item-admin.task-completed {
+    opacity: 0.6;
+}
+
+.task-status-indicator {
+    font-size: 1.5rem;
+    flex-shrink: 0;
+}
+
+.task-info {
+    flex-grow: 1;
+}
+
+.task-info h6 {
+    margin: 0 0 8px 0;
+    color: var(--text-primary);
+    font-size: 1.05rem;
+}
+
+.task-time {
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+}
+
+.task-badges {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 12px;
+}
+
+.badge {
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.badge-status-completed {
+    background: rgba(48, 209, 88, 0.2);
+    color: var(--success);
+}
+
+.badge-status-pending {
+    background: rgba(255, 159, 10, 0.2);
+    color: var(--warning);
+}
+
+.badge-urgency-critical {
+    background: rgba(255, 69, 58, 0.2);
+    color: var(--danger);
+}
+
+.badge-urgency-high {
+    background: rgba(255, 159, 10, 0.2);
+    color: var(--warning);
+}
+
+.badge-urgency-medium,
+.badge-urgency-low {
+    background: rgba(10, 132, 255, 0.2);
+    color: var(--accent-blue);
+}
+
+.badge-risk-high {
+    background: rgba(255, 69, 58, 0.2);
+    color: var(--danger);
+}
+
+.badge-risk-medium {
+    background: rgba(255, 159, 10, 0.2);
+    color: var(--warning);
+}
+
+.badge-risk-low,
+.badge-risk-none {
+    background: rgba(48, 209, 88, 0.2);
+    color: var(--success);
+}
+
+.task-suggestion {
+    margin-top: 12px;
+    padding: 10px;
+    background: rgba(10, 132, 255, 0.1);
+    border-radius: 8px;
+    font-size: 0.9rem;
+}
+
+.task-suggestion i {
+    color: var(--accent-blue);
+    margin-right: 8px;
+}
+
+.ai-details {
+    margin-top: 12px;
+}
+
+.ai-details summary {
+    cursor: pointer;
+    color: var(--accent-blue);
+    font-size: 0.9rem;
+    padding: 8px;
+    border-radius: 6px;
+    background: rgba(10, 132, 255, 0.1);
+}
+
+.ai-details summary:hover {
+    background: rgba(10, 132, 255, 0.2);
+}
+
+.ai-details .ai-suggestion-box {
+    margin-top: 10px;
+    padding: 15px;
+    background: rgba(10, 132, 255, 0.1);
+    border-radius: 8px;
+    border: 1px solid rgba(10, 132, 255, 0.2);
+}
+</style>
+{% endblock %}
