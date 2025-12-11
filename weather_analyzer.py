@@ -240,18 +240,37 @@ class WeatherAnalyzer:
             forecast_list (list): List of weather forecasts (7 days)
         
         Returns:
-            list: Top 3 optimal days with scores and recommendations
+            list: Top 3 optimal days with scores, stars, dates and recommendations
         """
         results = []
         
         for forecast in forecast_list:
             score_data = self.calculate_suitability_score(task_name, forecast)
+            star_data = self.score_to_stars(score_data['score'])
+            
+            # Parse date and format it
+            date_str = forecast.get('date', '')
+            day_name = forecast.get('day_name', '')
+            
+            # Create formatted date string
+            try:
+                date_obj = datetime.strptime(date_str, '%Y-%m-%d')
+                formatted_date = date_obj.strftime('%b %d')  # e.g., "Dec 12"
+                display_text = f"{day_name} ({formatted_date})"
+            except:
+                display_text = day_name
             
             results.append({
-                'date': forecast.get('date', 'Unknown'),
-                'day_name': forecast.get('day_name', ''),
+                'date': date_str,
+                'day_name': day_name,
+                'formatted_date': formatted_date if 'date_obj' in locals() else '',
+                'display_text': display_text,
                 'score': score_data['score'],
                 'rating': score_data['rating'],
+                'stars': star_data['stars'],
+                'stars_text': star_data['stars_text'],
+                'stars_html': star_data['stars_html'],
+                'rating_text': star_data['rating_text'],
                 'weather': {
                     'temp': forecast['temp'],
                     'condition': forecast.get('condition', 'Unknown'),
@@ -295,7 +314,17 @@ class WeatherAnalyzer:
         for forecast in forecast_list:
             score_data = self.calculate_suitability_score(task_name, forecast)
             if score_data['score'] >= 60:
-                suitable_days.append(forecast.get('date'))
+                # Format the date nicely
+                day_name = forecast.get('day_name', '')
+                date_str = forecast.get('date', '')
+                try:
+                    date_obj = datetime.strptime(date_str, '%Y-%m-%d')
+                    formatted_date = date_obj.strftime('%b %d')
+                    display = f"{day_name} ({formatted_date})"
+                except:
+                    display = day_name
+                
+                suitable_days.append(display)
         
         suitable_count = len(suitable_days)
         
@@ -311,7 +340,7 @@ class WeatherAnalyzer:
         elif suitable_count <= 2:
             urgency_level = 'MEDIUM'
             urgency_score = 50
-            reason = f"Limited weather windows: {suitable_count} days"
+            reason = f"Limited weather windows: {', '.join(suitable_days)}"
         else:
             urgency_level = 'LOW'
             urgency_score = 20
@@ -389,7 +418,7 @@ class NotificationManager:
         
         elif urgency_data['urgency_level'] == 'HIGH':
             if best_day:
-                return f"⚠️ LIMITED TIME: Only 1 good day for '{task_name}' - {best_day['day_name']} ({best_day['rating']} conditions). Schedule soon!"
+                return f"⚠️ LIMITED TIME: Only 1 good day for '{task_name}' - {best_day['display_text']} ({best_day['rating_text']} conditions). Schedule soon!"
             else:
                 return f"⚠️ Act soon: Limited weather windows for '{task_name}'"
         

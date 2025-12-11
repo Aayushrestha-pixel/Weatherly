@@ -6,6 +6,7 @@ import requests
 import google.generativeai as genai
 from weather_analyzer import WeatherAnalyzer, NotificationManager
 from datetime import datetime, timedelta
+import pytz
 
 app = Flask(__name__)
 app.config.from_object(Config)
@@ -19,6 +20,13 @@ login_manager.login_view = 'login'
 # Configure Gemini
 genai.configure(api_key=app.config['GEMINI_API_KEY'])
 model = genai.GenerativeModel('gemini-2.5-flash')
+
+# Nepal timezone
+nepal_tz = pytz.timezone('Asia/Kathmandu')
+
+def get_nepal_time():
+    """Get current time in Nepal timezone"""
+    return datetime.now(nepal_tz)
 
 @login_manager.user_loader
 def load_user(user_id):
@@ -201,20 +209,21 @@ def add_task():
         enhanced_suggestion = ai_suggestion['suggestion']
         if best_days:
             enhanced_suggestion += "\n\n📅 SMART SCHEDULING:\n"
-        for i, day in enumerate(best_days, 1):
-            day_stars = analyzer.score_to_stars(day['score'])
-            enhanced_suggestion += f"{i}. {day['day_name']} - {day_stars['stars_text']} {day_stars['rating_text']}\n"
+            for i, day in enumerate(best_days, 1):
+                # Use the new display_text and stars_text from analyzer
+                enhanced_suggestion += f"{i}. {day['display_text']}: {day['stars_text']} {day['rating_text']}\n"
 
-        # Create task with smart data
+        # Create task with smart data (using Nepal time)
         task = Task(
             user_id=current_user.id,
             task_name=task_name,
             ai_suggestion=enhanced_suggestion,
             suitability_score=star_rating['stars'],
-            best_day_suggestion=best_days[0]['day_name'] if best_days else None,
+            best_day_suggestion=best_days[0]['display_text'] if best_days else None,
             urgency_level=urgency_data['urgency_level'],
             risk_level=determine_risk_level(suitability['score']),
-            last_analysis=datetime.utcnow()
+            last_analysis=get_nepal_time(),
+            created_at=get_nepal_time()
         )
         db.session.add(task)
         db.session.commit()
@@ -407,6 +416,7 @@ At the end, add on a new line: RISK_LEVEL: [none/low/medium/high]
             'suggestion': "✓ Task noted. Check weather conditions above for planning.",
             'risk_level': 'none'
         }
+
 def get_7day_forecast(city):
     """Fetch 7-day forecast from OpenWeatherMap"""
     api_key = app.config['OPENWEATHER_API_KEY']
@@ -470,4 +480,3 @@ with app.app_context():
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
-

@@ -2,8 +2,16 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_login import UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime
+import pytz
 
 db = SQLAlchemy()
+
+# Nepal timezone
+nepal_tz = pytz.timezone('Asia/Kathmandu')
+
+def get_nepal_time():
+    """Get current time in Nepal timezone"""
+    return datetime.now(nepal_tz)
 
 class User(UserMixin, db.Model):
     __tablename__ = 'users'
@@ -13,7 +21,7 @@ class User(UserMixin, db.Model):
     email = db.Column(db.String(120), unique=True, nullable=False)
     password_hash = db.Column(db.String(200), nullable=False)
     preferred_city = db.Column(db.String(100), default='Kathmandu')
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=get_nepal_time)
     
     # Relationship with tasks
     tasks = db.relationship('Task', backref='user', lazy=True, cascade='all, delete-orphan')
@@ -37,16 +45,26 @@ class Task(db.Model):
     ai_suggestion = db.Column(db.Text, nullable=True)
     risk_level = db.Column(db.String(20), default='none')  # none, low, medium, high
     status = db.Column(db.String(20), default='pending')
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=get_nepal_time)
 
-     # for smart scheduling
+    # for smart scheduling
     suitability_score = db.Column(db.Float, default=0.0)
     best_day_suggestion = db.Column(db.String(100), nullable=True)
     urgency_level = db.Column(db.String(20), default='LOW')
     last_analysis = db.Column(db.DateTime, nullable=True)
     
+    def get_formatted_time(self):
+        """Get formatted time in Nepal timezone"""
+        if self.created_at:
+            # If datetime is naive, assume it's UTC and localize it
+            if self.created_at.tzinfo is None:
+                utc_time = pytz.utc.localize(self.created_at)
+                nepal_time = utc_time.astimezone(nepal_tz)
+            else:
+                nepal_time = self.created_at.astimezone(nepal_tz)
+            
+            return nepal_time.strftime('%b %d, %Y at %I:%M %p')
+        return "Unknown"
+    
     def __repr__(self):
         return f'<Task {self.task_name}>'
-
-   
-    

@@ -35,8 +35,17 @@
                 <div class="notif-action">
                     <small>
                         <i class="fas fa-calendar"></i> 
-                        Recommended: {{ notif.best_day.day_name }} 
-                        ({{ notif.best_day.rating }})
+                        Recommended: {{ notif.best_day.display_text }}
+                        <span class="notif-stars">
+                            {% for i in range(1, 6) %}
+                                {% if i <= notif.best_day.stars %}
+                                    <i class="fas fa-star star-filled"></i>
+                                {% else %}
+                                    <i class="far fa-star star-empty"></i>
+                                {% endif %}
+                            {% endfor %}
+                        </span>
+                        ({{ notif.best_day.rating_text }})
                     </small>
                 </div>
                 {% endif %}
@@ -156,7 +165,7 @@
             <div class="tasks-body">
                 {% if tasks %}
                     {% for task in tasks %}
-                    <div class="task-item animate-fade-in {% if task.status == 'completed' %}task-completed{% endif %} risk-{{ task.risk_level }}">
+                    <div class="task-item animate-fade-in {% if task.status == 'completed' %}task-completed{% endif %} risk-{{ task.risk_level }}" data-stars="{{ task.suitability_score }}">
                         <div class="task-main">
                             <div class="task-checkbox">
                                 <a href="{{ url_for('toggle_task', task_id=task.id) }}" class="task-toggle">
@@ -170,49 +179,51 @@
                             <div class="task-content">
                                 <h5 class="task-title">{{ task.task_name }}</h5>
                                 <small class="task-time">
-                                    {{ task.created_at.strftime('%b %d, %Y at %I:%M %p') }}
+                                    {{ task.get_formatted_time() }}
                                 </small>
-                                <!-- Star Rating Display -->
-{% if task.suitability_score %}
-<div class="star-rating-display">
-    <div class="star-rating-header">
-        <span class="rating-label">Weather Suitability</span>
-    </div>
-    <div class="star-rating-content">
-        <div class="stars-large">
-            {% for i in range(1, 6) %}
-                {% if i <= task.suitability_score %}
-                    <i class="fas fa-star star-filled"></i>
-                {% else %}
-                    <i class="far fa-star star-empty"></i>
-                {% endif %}
-            {% endfor %}
-        </div>
-        <div class="rating-info">
-            <span class="star-count">{{ task.suitability_score }} out of 5 stars</span>
-            <span class="rating-badge">
-                {% if task.suitability_score == 5 %}
-                    Excellent
-                {% elif task.suitability_score == 4 %}
-                    Very Good
-                {% elif task.suitability_score == 3 %}
-                    Good
-                {% elif task.suitability_score == 2 %}
-                    Fair
-                {% else %}
-                    Poor
-                {% endif %}
-            </span>
-        </div>
-    </div>
-</div>
-{% endif %}
+                                
+                                <!-- Star Rating Display with Date -->
+                                {% if task.suitability_score %}
+                                <div class="star-rating-display">
+                                    <div class="star-rating-header">
+                                        <span class="rating-label">Weather Suitability</span>
+                                    </div>
+                                    <div class="star-rating-content">
+                                        <div class="stars-large">
+                                            {% for i in range(1, 6) %}
+                                                {% if i <= task.suitability_score %}
+                                                    <i class="fas fa-star star-filled"></i>
+                                                {% else %}
+                                                    <i class="far fa-star star-empty"></i>
+                                                {% endif %}
+                                            {% endfor %}
+                                        </div>
+                                        <div class="rating-info">
+                                            <span class="star-count">{{ task.suitability_score }} out of 5 stars</span>
+                                            <span class="rating-badge">
+                                                {% if task.suitability_score == 5 %}
+                                                    Excellent
+                                                {% elif task.suitability_score == 4 %}
+                                                    Very Good
+                                                {% elif task.suitability_score == 3 %}
+                                                    Good
+                                                {% elif task.suitability_score == 2 %}
+                                                    Fair
+                                                {% else %}
+                                                    Poor
+                                                {% endif %}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endif %}
+                                
                                 {% if task.ai_suggestion %}
                                 <div class="ai-suggestion-box">
                                     <div class="ai-badge">
-                                        <i class="fas fa-robot"></i> AI
+                                        <i class="fas fa-robot"></i> AI Analysis
                                     </div>
-                                    <p class="ai-text">{{ task.ai_suggestion }}</p>
+                                    <p class="ai-text" style="white-space: pre-line;">{{ task.ai_suggestion }}</p>
                                 </div>
                                 {% endif %}
                             </div>
@@ -275,6 +286,8 @@
                 <li>⚡ Check risk levels before planning</li>
                 <li>🌤️ Weather updates in real-time</li>
                 <li>⌨️ Press Ctrl+K for quick add</li>
+                <li>⭐ Stars show weather suitability</li>
+                <li>📅 Best days are calculated automatically</li>
             </ul>
         </div>
     </div>
@@ -308,4 +321,3 @@
     </div>
 </div>
 {% endblock %}
-
